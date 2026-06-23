@@ -217,6 +217,45 @@ Console.WriteLine("== LandmarkMap: ре-локализация под ПОВОР
             $"|Δ| {Vector2.Distance(posAbs, pos):0.0} px");
 }
 
+Console.WriteLine("== IPM: ректификация наклона камеры ==");
+{
+    int N = 256;
+    float fov = 70f * MathF.PI / 180f;
+
+    var id = new InversePerspectiveMap();
+    id.Build(N, fov, 0f);
+    var A = MakeTexture(N, 11);
+    var dst = new GrayFrame(N, N);
+    id.Rectify(A, dst);
+    bool same = true;
+    for (int i = 0; i < N * N; i++) if (dst.Pixels[i] != A.Pixels[i]) { same = false; break; }
+    Check("tilt=0 → identity (pass-through)", id.Identity && same);
+
+    float th = 18f * MathF.PI / 180f;
+    var ipmP = new InversePerspectiveMap(); ipmP.Build(N, fov, th);
+    var ipmM = new InversePerspectiveMap(); ipmM.Build(N, fov, -th);
+    var Hp = ipmP.Homography; var Hm = ipmM.Homography;
+    var prod = new double[9];
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)
+            prod[r * 3 + c] = Hp[r * 3] * Hm[c] + Hp[r * 3 + 1] * Hm[3 + c] + Hp[r * 3 + 2] * Hm[6 + c];
+    double[] I = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+    double herr = 0;
+    for (int i = 0; i < 9; i++) herr += Math.Abs(prod[i] / prod[8] - I[i]);
+    Check("H(θ)·H(−θ) ≈ I", herr < 1e-3, $"err {herr:0.0000}");
+
+    // Ректификация (как в бою — ОДИН ресэмпл) двух повёрнутых кадров → FM должен ловить поворот.
+    var rec = new InversePerspectiveMap(); rec.Build(N, fov, 14f * MathF.PI / 180f);
+    var bk1 = new GrayFrame(N, N); rec.Rectify(RotatedCrop(11, 0f, N), bk1);
+    float aDeg = 12f;
+    var bk2 = new GrayFrame(N, N); rec.Rectify(RotatedCrop(11, aDeg * MathF.PI / 180f, N), bk2);
+    var fm = new FourierMellinEstimator(); fm.Submit(bk1);
+    var pd = fm.Submit(bk2);
+    float gotDeg = pd.DTheta * 180f / MathF.PI;
+    Check("на ректифицированных кадрах FM ловит поворот", Math.Abs(gotDeg - aDeg) < 5f && pd.Conf > 0.1f,
+        $"=> {gotDeg:0.0}° conf {pd.Conf:0.00}");
+}
+
 Console.WriteLine("== Fourier-Mellin: перформанс (256×256, путь с поворотом) ==");
 {
     int N = 256;

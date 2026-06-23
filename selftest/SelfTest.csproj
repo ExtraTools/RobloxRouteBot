@@ -19,6 +19,7 @@
     <Compile Include="..\Vision\FourierProcessor.cs" />
     <Compile Include="..\Vision\PhaseCorrelationEstimator.cs" />
     <Compile Include="..\Vision\ImageWarp.cs" />
+    <Compile Include="..\Vision\InversePerspectiveMap.cs" />
     <Compile Include="..\Vision\FourierMellinEstimator.cs" />
     <Compile Include="..\Vision\LandmarkMap.cs" />
     <Compile Include="..\Core\PurePursuitController.cs" />

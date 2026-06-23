@@ -42,6 +42,7 @@ public partial class MainWindow : Window
 
     private readonly FrameTransform _frame = new();
     private readonly UnifiedCaptureSource _captureSource;
+    private readonly RectifyingCaptureSource _rectifyingSource;
     private bool _draggingMarker;
 
     public MainWindow()
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
         _engine.Stopped += OnStopped;
 
         _captureSource = new UnifiedCaptureSource(_wgc, _liveCapture, SelectedHwnd);
+        _rectifyingSource = new RectifyingCaptureSource(_captureSource);
 
         CmbWindow.ItemsSource = _windows;
 
@@ -258,8 +260,9 @@ public partial class MainWindow : Window
             _frame.ScaleX = (float)(cw / 256.0) * mult;
             _frame.ScaleY = (float)(ch / 256.0) * mult;
 
-            provider = new VisualOdometryProvider(_captureSource, new FourierMellinEstimator(), _frame, new LandmarkMap());
-            SetStatus("Зрение: камеру сверху. Бот сам калибрует W/D и держит путь привязанным к миру при повороте камеры.");
+            ApplyTilt(); // протолкнуть текущий наклон/FOV в ректификатор перед стартом
+            provider = new VisualOdometryProvider(_rectifyingSource, new FourierMellinEstimator(), _frame, new LandmarkMap());
+            SetStatus("Зрение: камеру сверху (можно с наклоном). Бот калибрует W/D и держит путь привязанным к миру.");
         }
         else if (RbFlow.IsChecked == true)
         {
@@ -538,4 +541,23 @@ public partial class MainWindow : Window
 
     private static float ParseFloat(string s, float def) =>
         float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : def;
+
+    // ===== Наклон камеры (IPM-ректификация) =====
+
+    private void SldTilt_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_rectifyingSource == null) return; // во время InitializeComponent
+        if (TxtTiltVal != null) TxtTiltVal.Text = $"{e.NewValue:0}°";
+        ApplyTilt();
+    }
+
+    private void TxtFov_Changed(object sender, TextChangedEventArgs e) => ApplyTilt();
+
+    private void ApplyTilt()
+    {
+        if (_rectifyingSource == null) return;
+        double deg = SldTilt?.Value ?? 0;
+        float fovDeg = ParseFloat(TxtFov?.Text ?? "70", 70f);
+        _rectifyingSource.SetTilt((float)(deg * Math.PI / 180.0), fovDeg * (float)Math.PI / 180f);
+    }
 }

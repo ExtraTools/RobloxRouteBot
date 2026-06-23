@@ -9,9 +9,12 @@ namespace RobloxRouteBot.Vision;
 /// </summary>
 public sealed class FourierProcessor
 {
+    // FFT-проходы параллелим по P-ядрам (i5-14600KF). Кап на 6 (P-cores), чтобы E-ядра/HT не давали джиттер.
+    private static readonly ParallelOptions Po = new() { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 2, 6) };
+
     private int _n;
     private double[]? _hann;
-    private Complex[]? _row, _cross;
+    private Complex[]? _cross;
     private double[]? _surface;
 
     public int Size => _n;
@@ -32,7 +35,6 @@ public sealed class FourierProcessor
                 _hann[y * n + x] = wx * wy;
             }
         }
-        _row = new Complex[n];
         _cross = new Complex[n * n];
         _surface = new double[n * n];
     }
@@ -117,12 +119,28 @@ public sealed class FourierProcessor
 
     public void Fft2D(Complex[] d, int n, bool inverse)
     {
-        var row = _row!;
-        for (int r = 0; r < n; r++) { Array.Copy(d, r * n, row, 0, n); Fft1D(row, inverse); Array.Copy(row, 0, d, r * n, n); }
+        // Каждый воркер получает СВОЙ буфер строки (localInit) — иначе гонка на общем буфере.
+        // Строки независимы; пишем в непересекающиеся участки d, поэтому без локов.
+        RowPass(d, n, inverse);
         Transpose(d, n);
-        for (int r = 0; r < n; r++) { Array.Copy(d, r * n, row, 0, n); Fft1D(row, inverse); Array.Copy(row, 0, d, r * n, n); }
+        RowPass(d, n, inverse);
         Transpose(d, n);
-        if (inverse) { double inv = 1.0 / ((double)n * n); for (int i = 0; i < n * n; i++) d[i] *= inv; }
+        if (inverse)
+        {
+            double inv = 1.0 / ((double)n * n);
+            for (int i = 0; i < n * n; i++) d[i] *= inv;
+        }
+    }
+
+    private static void RowPass(Complex[] d, int n, bool inverse)
+    {
+        Parallel.For(0, n, Po, () => new Complex[n], (r, _, row) =>
+        {
+            Array.Copy(d, r * n, row, 0, n);
+            Fft1D(row, inverse);
+            Array.Copy(row, 0, d, r * n, n);
+            return row;
+        }, _ => { });
     }
 
     private static void Transpose(Complex[] d, int n)
