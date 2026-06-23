@@ -258,8 +258,8 @@ public partial class MainWindow : Window
             _frame.ScaleX = (float)(cw / 256.0) * mult;
             _frame.ScaleY = (float)(ch / 256.0) * mult;
 
-            provider = new VisualOdometryProvider(_captureSource, new PhaseCorrelationEstimator(), _frame, new LandmarkMap());
-            SetStatus("Зрение: камеру держи строго сверху. После отсчёта бот сам калибрует W/D.");
+            provider = new VisualOdometryProvider(_captureSource, new FourierMellinEstimator(), _frame, new LandmarkMap());
+            SetStatus("Зрение: камеру сверху. Бот сам калибрует W/D и держит путь привязанным к миру при повороте камеры.");
         }
         else if (RbFlow.IsChecked == true)
         {
@@ -315,6 +315,7 @@ public partial class MainWindow : Window
             TxtTmFps.Text = t.Fps > 0 ? $"{t.Fps,4:0.0}" : "—";
             TxtTmResp.Text = $"{t.Response:0.00}";
             TxtTmDrift.Text = $"{t.DriftSinceSnap,4:0.0} px";
+            TxtTmHeading.Text = $"{t.HeadingDeg,5:0.0}°";
             TxtTmLm.Text = t.Landmarks.ToString();
             TxtTmKeys.Text = KeysGlyph(t.Keys);
             TxtTmPos.Text = $"{t.Position.X,4:0},{t.Position.Y,4:0}";

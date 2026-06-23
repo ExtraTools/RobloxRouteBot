@@ -109,13 +109,13 @@ Console.WriteLine("== LandmarkMap: harvest + relocalize (внутренняя с
     var A = MakeTexture(N, 2);
     var lm = new LandmarkMap();
     var pos = new Vector2(1000, 1000);
-    lm.Harvest(A, pos, ft);
+    lm.Harvest(A, pos, ft, 0f);
     Check("ориентиры засеялись", lm.Count > 0, $"count {lm.Count}");
 
     int dx = 8, dy = 8;
     var B = ShiftToroidal(A, dx, dy);                 // картинка уехала на (dx,dy)
     var newPos = pos + ft.MapShiftToWorld(new Vector2(dx, dy)); // перс уехал на (-dx,-dy)
-    bool ok = lm.TryRelocalize(B, newPos, ft, out var posAbs, out var conf);
+    bool ok = lm.TryRelocalize(B, newPos, ft, 0f, out var posAbs, out var conf);
     Check("relocalize нашёл ориентир", ok, $"conf {conf:0.00}");
     if (ok)
         Check("posAbs ≈ истинная позиция", Vector2.Distance(posAbs, newPos) < 4f,
@@ -138,6 +138,98 @@ Console.WriteLine("== PurePursuit: финиш по радиусу и по про
     pp.SetRoute(route);
     var (_, doneProj) = pp.Compute(new Vector2(130, 30));   // проскочил конец вбок — финиш по проекции
     Check("проскочил конец → финиш (проекция)", doneProj);
+}
+
+// Реалистичный поворот камеры: крутим БОЛЬШУЮ текстуру и берём центральный кроп N×N,
+// чтобы не было чёрных углов (в живой игре кадр при повороте остаётся полным).
+static GrayFrame RotatedCrop(int seed, float ang, int N)
+{
+    int M = N * 3 / 2;
+    var big = MakeTexture(M, seed);
+    var rot = ImageWarp.RotateAboutCenter(big, ang);
+    var f = new GrayFrame(N, N);
+    int off = (M - N) / 2;
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++)
+            f.Pixels[y * N + x] = rot.At(off + x, off + y);
+    return f;
+}
+
+Console.WriteLine("== Fourier-Mellin: восстановление ПОВОРОТА ==");
+{
+    int N = 256;
+    foreach (int deg in new[] { 3, 7, 12, 20 })
+    {
+        float ang = deg * MathF.PI / 180f;
+        var fm = new FourierMellinEstimator();
+        fm.Submit(RotatedCrop(5, 0f, N));     // prev: неповёрнутый кроп
+        var pd = fm.Submit(RotatedCrop(5, ang, N)); // cur: тот же мир, повёрнут на ang
+        float gotDeg = pd.DTheta * 180f / MathF.PI;
+        bool ok = Math.Abs(gotDeg - deg) < 3.5f && pd.Conf > 0.12f;
+        Check($"поворот {deg}°", ok, $"=> {gotDeg:0.0}° conf {pd.Conf:0.00}");
+    }
+}
+
+Console.WriteLine("== Fourier-Mellin: стабильность на неподвижном кадре ==");
+{
+    var prev = MakeTexture(256, 6);
+    var fm = new FourierMellinEstimator();
+    fm.Submit(prev);
+    var pd = fm.Submit(prev); // тот же кадр
+    Check("нет ложного поворота", Math.Abs(pd.DTheta) < 0.02f && pd.Shift.Length() < 1.0f,
+        $"dθ {pd.DTheta * 180 / Math.PI:0.0}° shift {pd.Shift.Length():0.0}");
+}
+
+Console.WriteLine("== FrameTransform: знак интеграции с поворотом (heading=90°) ==");
+{
+    var ft = new FrameTransform { ScaleX = 2f, ScaleY = 2f };
+    ft.SetHeading(MathF.PI / 2);
+    var w = ft.RotateScreenShiftToWorld(new Vector2(0, 5)); // v=(0,10); R(-90)=( +y, -x )*... ждём (-10,0)
+    Check("heading=90 → (-10,0)", Math.Abs(w.X + 10) < 0.01 && Math.Abs(w.Y) < 0.01, $"=> ({w.X:0.0},{w.Y:0.0})");
+}
+
+Console.WriteLine("== FrameTransform: round-trip world↔screen при повороте ==");
+{
+    var ft = new FrameTransform { ScaleX = 1.5f, ScaleY = 0.8f };
+    float h = 0.4f;
+    var wo = new Vector2(37, -19);
+    var so = ft.WorldOffsetToScreen(wo, h);
+    var back = ft.ScreenOffsetToWorld(so, h);
+    Check("WorldOffset∘ScreenOffset = id", Vector2.Distance(back, wo) < 0.01f, $"|Δ| {Vector2.Distance(back, wo):0.000}");
+}
+
+Console.WriteLine("== LandmarkMap: ре-локализация под ПОВОРОТОМ камеры ==");
+{
+    int N = 256;
+    var ft = new FrameTransform { ScaleX = 1f, ScaleY = 1f };
+    var A = MakeTexture(N, 7);
+    var lm = new LandmarkMap();
+    var pos = new Vector2(1000, 1000);
+    lm.Harvest(A, pos, ft, 0f);                  // запомнили при heading 0
+    Check("ориентиры засеялись (rot)", lm.Count > 0, $"count {lm.Count}");
+
+    float ang = 12f * MathF.PI / 180f;
+    var B = ImageWarp.RotateAboutCenter(A, ang); // камеру повернули, перс на месте
+    bool ok = lm.TryRelocalize(B, pos, ft, ang, out var posAbs, out var conf);
+    Check("ориентир найден под поворотом", ok, $"conf {conf:0.00}");
+    if (ok)
+        Check("posAbs ≈ pos (перс не двигался)", Vector2.Distance(posAbs, pos) < 8f,
+            $"|Δ| {Vector2.Distance(posAbs, pos):0.0} px");
+}
+
+Console.WriteLine("== Fourier-Mellin: перформанс (256×256, путь с поворотом) ==");
+{
+    int N = 256;
+    var fm = new FourierMellinEstimator();
+    var frames = new GrayFrame[16];
+    for (int i = 0; i < frames.Length; i++) frames[i] = RotatedCrop(9, i * 0.4f * MathF.PI / 180f, N);
+    fm.Submit(frames[0]); // прогрев
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    int iters = 60;
+    for (int i = 0; i < iters; i++) fm.Submit(frames[i % frames.Length]);
+    sw.Stop();
+    double ms = sw.Elapsed.TotalMilliseconds / iters;
+    Check("FM Submit укладывается в реальное время", ms < 35.0, $"avg {ms:0.0} ms (~{1000.0 / ms:0} fps)");
 }
 
 Console.WriteLine();

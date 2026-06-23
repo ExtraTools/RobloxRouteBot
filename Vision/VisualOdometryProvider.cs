@@ -3,20 +3,22 @@ using System.Numerics;
 namespace RobloxRouteBot.Vision;
 
 /// <summary>
-/// Основной «глаз» бота: визуальная одометрия в two-layer.
-///  Layer 1 (каждый тик): глобальный сдвиг кадра (фазовая корреляция) → интеграция позиции.
-///  Layer 2 (по возможности): ре-локализация по запомненным ориентирам → мягкая коррекция дрейфа.
-/// Всё в единой системе координат канваса через FrameTransform. Позиция = реальная (измеренная),
-/// поэтому «финиш» наступает, только когда персонаж ДЕЙСТВИТЕЛЬНО дошёл, а не когда фантом доехал.
+/// Основной «глаз» бота: визуальная одометрия с ПОВОРОТОМ (Fourier-Mellin).
+///  Layer 1 (каждый тик): поза (поворот dθ + сдвиг) → накапливаем heading и интегрируем позицию
+///     В МИРОВОЙ системе (сдвиг поворачивается на heading), поэтому путь остаётся привязан к миру,
+///     даже если повернуть камеру.
+///  Layer 2: ре-локализация по ориентирам (поворото-устойчивая) → мягкая коррекция дрейфа.
+/// «Финиш» — только когда ИЗМЕРЕННАЯ позиция реально дошла.
 /// </summary>
 public sealed class VisualOdometryProvider : IPositionProvider
 {
-    private const float MotionGate = 0.06f;   // ниже — кадр неинформативен, позицию держим
-    private const float HarvestConf = 0.45f;  // выше — можно засевать новые ориентиры
-    private const float SnapGain = 0.35f;     // сила притяжения к абсолютной позиции
+    private const float MotionGate = 0.06f;
+    private const float HarvestConf = 0.45f;
+    private const float SnapGain = 0.35f;
+    private const float MaxStepRad = 0.30f;     // отсечка дикого скачка поворота за тик (~17°)
 
     private readonly ICaptureSource _cap;
-    private readonly IMotionEstimator _estimator;
+    private readonly IPoseEstimator _pose;
     private readonly FrameTransform _ft;
     private readonly LandmarkMap _landmarks;
     private readonly int _n;
@@ -25,22 +27,22 @@ public sealed class VisualOdometryProvider : IPositionProvider
     private float _conf;
     private float _fps;
 
-    public VisualOdometryProvider(ICaptureSource capture, IMotionEstimator estimator,
+    public VisualOdometryProvider(ICaptureSource capture, IPoseEstimator pose,
         FrameTransform frame, LandmarkMap landmarks, int analysisSize = 256)
     {
         _cap = capture;
-        _estimator = estimator;
+        _pose = pose;
         _ft = frame;
         _landmarks = landmarks;
         _n = analysisSize;
     }
 
-    public string Name => "Зрение (визуальная одометрия)";
+    public string Name => "Зрение (Fourier-Mellin одометрия)";
     public float Confidence => _conf;
 
     public bool UseLandmarks { get; set; } = true;
 
-    // ===== Телеметрия для UI =====
+    // ===== Телеметрия =====
     public string CaptureMode { get; private set; } = "—";
     public float Response { get; private set; }
     public bool SnappedThisTick { get; private set; }
@@ -48,11 +50,11 @@ public sealed class VisualOdometryProvider : IPositionProvider
     public int DupSkips { get; private set; }
     public int LandmarkCount => _landmarks.Count;
     public float Fps => _fps;
-    public Vector2 LastShiftPixels { get; private set; }
+    public float HeadingDeg => _ft.Heading * 180f / MathF.PI;
 
     // ===== Доступ для калибровки/маппинга =====
     public FrameTransform Frame => _ft;
-    public IMotionEstimator Estimator => _estimator;
+    public IPoseEstimator PoseEstimator => _pose;
     public ICaptureSource Capture => _cap;
     public int AnalysisSize => _n;
 
@@ -60,19 +62,18 @@ public sealed class VisualOdometryProvider : IPositionProvider
     {
         _pos = startWorldPos;
         _conf = 0;
-        _estimator.Reset();
+        _pose.Reset();
         _landmarks.Clear();
         SnappedThisTick = false;
         DriftSinceSnap = 0;
         DupSkips = 0;
-        LastShiftPixels = Vector2.Zero;
     }
 
     public void SetPosition(Vector2 worldPos)
     {
         _pos = worldPos;
-        _landmarks.Clear();   // ре-якорь вручную: старые ориентиры привязаны к дрейфовавшей траектории
-        _estimator.Reset();
+        _landmarks.Clear();
+        _pose.Reset();
     }
 
     public Vector2 Update(Vector2 commandedDir, float speed, double dt)
@@ -83,32 +84,30 @@ public sealed class VisualOdometryProvider : IPositionProvider
         var gray = _cap.GetGray(_n, _n, out bool dup);
         CaptureMode = _cap.Mode;
         if (gray == null) { _conf *= 0.9f; Response = 0; return _pos; }
-        if (dup) { DupSkips++; return _pos; } // повтор кадра = нулевое движение, не интегрируем
+        if (dup) { DupSkips++; return _pos; }
 
-        var (shift, mconf) = _estimator.Submit(gray);
-        Response = mconf;
-        LastShiftPixels = shift;
+        var pd = _pose.Submit(gray);
+        Response = pd.Conf;
 
-        if (mconf > MotionGate)
+        if (pd.Conf > MotionGate)
         {
-            _pos += _ft.MapShiftToWorld(shift);
-            _conf = mconf;
+            if (MathF.Abs(pd.DTheta) < MaxStepRad) _ft.AddHeading(pd.DTheta); // накапливаем поворот, отсекая скачки
+            _pos += _ft.RotateScreenShiftToWorld(pd.Shift);
+            _conf = pd.Conf;
         }
-        else
-        {
-            _conf *= 0.92f; // держим позицию, не интегрируем мусор
-        }
+        else _conf *= 0.92f;
 
         if (UseLandmarks)
         {
-            if (_landmarks.TryRelocalize(gray, _pos, _ft, out var posAbs, out var snapConf))
+            float h = _ft.Heading;
+            if (_landmarks.TryRelocalize(gray, _pos, _ft, h, out var posAbs, out var snapConf))
             {
                 Vector2 before = _pos;
                 _pos += SnapGain * snapConf * (posAbs - _pos);
                 DriftSinceSnap = Vector2.Distance(posAbs, before);
                 SnappedThisTick = true;
             }
-            if (mconf > HarvestConf) _landmarks.Harvest(gray, _pos, _ft);
+            if (pd.Conf > HarvestConf) _landmarks.Harvest(gray, _pos, _ft, h);
         }
 
         return _pos;

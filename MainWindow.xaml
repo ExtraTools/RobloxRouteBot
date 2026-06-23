@@ -204,6 +204,8 @@
                                     <TextBlock x:Name="TxtTmResp" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
                                 <DockPanel Margin="0,1"><TextBlock Text="drift" Foreground="{StaticResource TextMuted}" Width="64"/>
                                     <TextBlock x:Name="TxtTmDrift" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="heading" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmHeading" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
                                 <DockPanel Margin="0,1"><TextBlock Text="marks" Foreground="{StaticResource TextMuted}" Width="64"/>
                                     <TextBlock x:Name="TxtTmLm" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
                                 <DockPanel Margin="0,1"><TextBlock Text="keys" Foreground="{StaticResource TextMuted}" Width="64"/>

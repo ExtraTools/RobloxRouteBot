@@ -18,6 +18,7 @@ public sealed class TickInfo
     public bool Snapped { get; init; }
     public float Fps { get; init; }
     public int Landmarks { get; init; }
+    public float HeadingDeg { get; init; }
     public string Phase { get; init; } = "RUN";
 }
 
@@ -114,7 +115,7 @@ public sealed class BotEngine
             // Авто-калибровка базиса WASD по зрению.
             if (AutoCalibrate && provider is VisualOdometryProvider vo)
             {
-                _calibrator.Run(vo.Capture, vo.Estimator, _input, vo.Frame, vo.AnalysisSize,
+                _calibrator.Run(vo.Capture, vo.PoseEstimator, _input, vo.Frame, vo.AnalysisSize,
                                 Status, () => _running);
                 if (!_running) return;
                 provider.SetPosition(route[0]); // сброс после калибровочных движений
@@ -210,7 +211,8 @@ public sealed class BotEngine
             {
                 Position = pos, Direction = dir, Keys = keys, Confidence = vo.Confidence,
                 Mode = vo.CaptureMode, Response = vo.Response, DriftSinceSnap = vo.DriftSinceSnap,
-                Snapped = vo.SnappedThisTick, Fps = vo.Fps, Landmarks = vo.LandmarkCount, Phase = "RUN",
+                Snapped = vo.SnappedThisTick, Fps = vo.Fps, Landmarks = vo.LandmarkCount,
+                HeadingDeg = vo.HeadingDeg, Phase = "RUN",
             };
         }
         return new TickInfo

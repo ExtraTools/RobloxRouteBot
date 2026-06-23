@@ -32,6 +32,13 @@ public sealed class FrameTransform
 
     public bool Calibrated { get; private set; }
 
+    /// <summary>Накопленный поворот ЭКРАНА относительно мира (радианы). Растёт при повороте камеры.</summary>
+    private float _heading;
+    public float Heading { get { lock (_gate) return _heading; } }
+    public void SetHeading(float radians) { lock (_gate) _heading = radians; }
+    public void AddHeading(float dRadians) { lock (_gate) _heading += dRadians; }
+    public void ResetHeading() { lock (_gate) _heading = 0f; }
+
     public Vector2 Forward { get { lock (_gate) return _fwd; } }
     public Vector2 Strafe  { get { lock (_gate) return _str; } }
 
@@ -49,14 +56,31 @@ public sealed class FrameTransform
 
     public void ResetBasis()
     {
-        lock (_gate) { _fwd = new Vector2(0f, -1f); _str = new Vector2(1f, 0f); Calibrated = false; }
+        lock (_gate) { _fwd = new Vector2(0f, -1f); _str = new Vector2(1f, 0f); Calibrated = false; _heading = 0f; }
     }
 
-    /// <summary>Сдвиг картинки (px анализа) → смещение персонажа в канвасе (perс едет против картинки).</summary>
+    /// <summary>Сдвиг картинки (px анализа) → смещение персонажа в канвасе (perс едет против картинки). Без поворота.</summary>
     public Vector2 MapShiftToWorld(Vector2 shiftPx)
     {
         float sgn = InvertMotion ? 1f : -1f;
         return new Vector2(sgn * shiftPx.X * ScaleX, sgn * shiftPx.Y * ScaleY);
+    }
+
+    /// <summary>
+    /// Сдвиг картинки → смещение в МИРЕ с учётом поворота камеры: сначала R(heading) (экран→мир),
+    /// затем знак (перс едет против картинки) и масштаб. Камеру повернул — путь остаётся привязан к миру.
+    /// </summary>
+    public Vector2 RotateScreenShiftToWorld(Vector2 shiftPx)
+    {
+        float h;
+        lock (_gate) h = _heading;
+        // экран→мир = R(−h); масштаб до поворота. Перс едет против картинки (sgn).
+        float c = MathF.Cos(h), s = MathF.Sin(h);
+        float vx = shiftPx.X * ScaleX, vy = shiftPx.Y * ScaleY;
+        float rx = c * vx + s * vy;   // R(−h)·v
+        float ry = -s * vx + c * vy;
+        float sgn = InvertMotion ? 1f : -1f;
+        return new Vector2(sgn * rx, sgn * ry);
     }
 
     /// <summary>Желаемое направление в канвасе → коэффициенты (вперёд, вбок) = B⁻¹·dir.</summary>
@@ -73,7 +97,7 @@ public sealed class FrameTransform
         return (forward, strafe);
     }
 
-    /// <summary>Экранный офсет (px анализа от центра) → офсет в канвасе. Для ориентиров.</summary>
+    /// <summary>Экранный офсет (px анализа от центра) → офсет в канвасе. Для ориентиров (без поворота).</summary>
     public Vector2 ScreenOffsetToWorld(Vector2 offsetPx)
         => new(offsetPx.X * ScaleX, offsetPx.Y * ScaleY);
 
@@ -81,4 +105,25 @@ public sealed class FrameTransform
     public Vector2 WorldOffsetToScreen(Vector2 offsetWorld)
         => new(ScaleX > 1e-6f ? offsetWorld.X / ScaleX : 0f,
                ScaleY > 1e-6f ? offsetWorld.Y / ScaleY : 0f);
+
+    // Повёрнутые варианты (статическая геометрия ориентира, БЕЗ знака движения).
+    // Контент на экране повёрнут на +heading относительно мира:
+    //   screen = (R(heading)·world) ./ Scale;   world = R(−heading)·(screen .* Scale).
+
+    public Vector2 ScreenOffsetToWorld(Vector2 offsetPx, float heading)
+    {
+        float sx = offsetPx.X * ScaleX, sy = offsetPx.Y * ScaleY;
+        float c = MathF.Cos(heading), s = MathF.Sin(heading);
+        // R(−heading)·(screen.*Scale)
+        return new Vector2(c * sx + s * sy, -s * sx + c * sy);
+    }
+
+    public Vector2 WorldOffsetToScreen(Vector2 offsetWorld, float heading)
+    {
+        float c = MathF.Cos(heading), s = MathF.Sin(heading);
+        // R(heading)·world, затем /Scale
+        float rx = c * offsetWorld.X - s * offsetWorld.Y;
+        float ry = s * offsetWorld.X + c * offsetWorld.Y;
+        return new Vector2(ScaleX > 1e-6f ? rx / ScaleX : 0f, ScaleY > 1e-6f ? ry / ScaleY : 0f);
+    }
 }

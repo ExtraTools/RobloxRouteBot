@@ -18,9 +18,10 @@ public sealed class WasdCalibrator
     public float MinShiftPx { get; set; } = 1.2f;
     public float MinSampleConf { get; set; } = 0.05f;
 
-    public bool Run(ICaptureSource cap, IMotionEstimator est, InputSender input, FrameTransform ft,
+    public bool Run(ICaptureSource cap, IPoseEstimator est, InputSender input, FrameTransform ft,
                     int n, Action<string>? status, Func<bool> alive)
     {
+        ft.ResetHeading(); // базис меряем в неповёрнутом кадре (камера во время калибровки неподвижна)
         status?.Invoke("Калибровка: жму W…");
         if (!Measure(MoveKey.Forward, cap, est, input, ft, n, alive, out var fwd))
         {
@@ -48,7 +49,7 @@ public sealed class WasdCalibrator
         return false;
     }
 
-    private bool Measure(MoveKey key, ICaptureSource cap, IMotionEstimator est, InputSender input,
+    private bool Measure(MoveKey key, ICaptureSource cap, IPoseEstimator est, InputSender input,
                          FrameTransform ft, int n, Func<bool> alive, out Vector2 dirCanvas)
     {
         dirCanvas = Vector2.Zero;
@@ -69,8 +70,8 @@ public sealed class WasdCalibrator
             elapsed += SampleStepMs;
             var g = cap.GetGray(n, n, out bool dup);
             if (g == null || dup) continue;
-            var (shift, conf) = est.Submit(g);
-            if (conf >= MinSampleConf) { net += shift; samples++; }
+            var pd = est.Submit(g);
+            if (pd.Conf >= MinSampleConf) { net += pd.Shift; samples++; }
         }
 
         input.SetHeld(MoveKey.None);
