@@ -13,8 +13,8 @@ public sealed class PurePursuitController
     private IReadOnlyList<Vector2> _route = Array.Empty<Vector2>();
     private int _searchFrom;
 
-    /// <summary>Радиус «дошёл до финала».</summary>
-    public float ArriveRadius { get; set; } = 12f;
+    /// <summary>Радиус «дошёл до финала». Должен перекрывать амплитуду 8-сторонней осцилляции.</summary>
+    public float ArriveRadius { get; set; } = 18f;
 
     /// <summary>Дистанция упреждения цели вдоль маршрута.</summary>
     public float LookAhead { get; set; } = 28f;
@@ -54,6 +54,16 @@ public sealed class PurePursuitController
             }
         }
         _searchFrom = nearest;
+
+        // Финиш по ПРОЕКЦИИ: мы на последнем сегменте и спроецировались за последнюю точку.
+        // Снимает зависимость финиша от точного попадания в маленький радиус при дискретном (8-сторонами)
+        // управлении — иначе перс может вечно кружить рядом, не входя в ArriveRadius.
+        if (nearest >= n - 2)
+        {
+            Vector2 seg = _route[n - 1] - _route[n - 2];
+            if (seg.LengthSquared() > 1e-6f && Vector2.Dot(pos - _route[n - 1], seg) >= 0f)
+                return (Vector2.Zero, true);
+        }
 
         // Идём вперёд по маршруту, пока не накопим LookAhead.
         int target = nearest;

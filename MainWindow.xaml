@@ -99,11 +99,13 @@
                     <TextBlock Text="EYES / FEEDBACK" Style="{StaticResource Overline}" Margin="0,16,0,6"/>
                     <Border Background="{StaticResource InputBg}" BorderBrush="{StaticResource BorderInter}"
                             BorderThickness="1" CornerRadius="8" Padding="2">
-                        <UniformGrid Rows="1" Columns="2">
-                            <RadioButton x:Name="RbOpen" Style="{StaticResource Segment}" GroupName="eyes"
-                                         IsChecked="True" Content="Open-loop"/>
+                        <UniformGrid Rows="1" Columns="3">
+                            <RadioButton x:Name="RbVo" Style="{StaticResource Segment}" GroupName="eyes"
+                                         IsChecked="True" Content="Зрение"/>
                             <RadioButton x:Name="RbFlow" Style="{StaticResource Segment}" GroupName="eyes"
-                                         Content="Опт. поток"/>
+                                         Content="Поток"/>
+                            <RadioButton x:Name="RbOpen" Style="{StaticResource Segment}" GroupName="eyes"
+                                         Content="Open"/>
                         </UniformGrid>
                     </Border>
 
@@ -180,6 +182,34 @@
                                 MouseLeftButtonUp="Canvas_MouseLeftButtonUp"
                                 SizeChanged="RouteCanvas_SizeChanged"/>
                         <Canvas x:Name="RulerCanvas" IsHitTestVisible="False" ClipToBounds="True"/>
+
+                        <!-- Лайв-телеметрия поверх картинки -->
+                        <Border x:Name="TelemetryPanel" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="0,10,10,0" Background="#D60E0F12" BorderBrush="{StaticResource Hairline}"
+                                BorderThickness="1" CornerRadius="8" Padding="11,9" IsHitTestVisible="False"
+                                Width="186">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,7">
+                                    <TextBlock Text="LIVE TELEMETRY" Style="{StaticResource Overline}" DockPanel.Dock="Left"/>
+                                    <TextBlock x:Name="TxtTmSnap" Text="SNAP" Style="{StaticResource Mono}" FontSize="10"
+                                               Foreground="{StaticResource Accent}" HorizontalAlignment="Right" Opacity="0"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="capture" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmMode" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="fps" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmFps" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="signal" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmResp" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="drift" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmDrift" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="marks" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmLm" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="keys" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmKeys" Style="{StaticResource Mono}" Foreground="{StaticResource Accent}" Text="—"/></DockPanel>
+                                <DockPanel Margin="0,1"><TextBlock Text="pos" Foreground="{StaticResource TextMuted}" Width="64"/>
+                                    <TextBlock x:Name="TxtTmPos" Style="{StaticResource Mono}" Foreground="{StaticResource TextSecondary}" Text="—"/></DockPanel>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Grid>
 

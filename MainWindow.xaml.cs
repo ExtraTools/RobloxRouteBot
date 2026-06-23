@@ -40,6 +40,10 @@ public partial class MainWindow : Window
     private WriteableBitmap? _liveWb;
     private bool? _liveWasDark;
 
+    private readonly FrameTransform _frame = new();
+    private readonly UnifiedCaptureSource _captureSource;
+    private bool _draggingMarker;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -48,6 +52,8 @@ public partial class MainWindow : Window
         _engine.Tick += OnTick;
         _engine.Status += SetStatus;
         _engine.Stopped += OnStopped;
+
+        _captureSource = new UnifiedCaptureSource(_wgc, _liveCapture, SelectedHwnd);
 
         CmbWindow.ItemsSource = _windows;
 
@@ -110,26 +116,65 @@ public partial class MainWindow : Window
 
     private void Canvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_engine.IsRunning) return;
+        Point p = e.GetPosition(RouteCanvas);
+
+        // Во время прогона ЛКМ по маркеру = ручной ре-якорь («вот где перс на самом деле»).
+        if (_engine.IsRunning)
+        {
+            if (_dot.Visibility == Visibility.Visible && DistanceToDot(p) <= 16)
+            {
+                _draggingMarker = true;
+                _dot.Width = _dot.Height = 14;
+                RouteCanvas.CaptureMouse();
+                SetStatus("Ре-якорь: тащи маркер на реальную позицию персонажа.");
+            }
+            return;
+        }
+
         _drawing = true;
         ClearRoute();
-        AddPoint(e.GetPosition(RouteCanvas));
+        AddPoint(p);
         RouteCanvas.CaptureMouse();
     }
 
     private void Canvas_MouseMove(object sender, MouseEventArgs e)
     {
+        if (_draggingMarker)
+        {
+            Place(_dot, ToVec(e.GetPosition(RouteCanvas)));
+            return;
+        }
         if (!_drawing) return;
         AddPoint(e.GetPosition(RouteCanvas));
     }
 
     private void Canvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_draggingMarker)
+        {
+            _draggingMarker = false;
+            _dot.Width = _dot.Height = 9;
+            RouteCanvas.ReleaseMouseCapture();
+            var v = ToVec(e.GetPosition(RouteCanvas));
+            _engine.SetMeasuredPosition(v);
+            SetStatus("Позиция переустановлена вручную.");
+            return;
+        }
         if (!_drawing) return;
         _drawing = false;
         RouteCanvas.ReleaseMouseCapture();
         RenderDecorations();
         SetStatus($"Маршрут готов: {_route.Count} точек. Жми «Запустить».");
+    }
+
+    private static Vector2 ToVec(Point p) => new((float)p.X, (float)p.Y);
+
+    private double DistanceToDot(Point p)
+    {
+        double cx = Canvas.GetLeft(_dot) + _dot.Width / 2;
+        double cy = Canvas.GetTop(_dot) + _dot.Height / 2;
+        double dx = p.X - cx, dy = p.Y - cy;
+        return Math.Sqrt(dx * dx + dy * dy);
     }
 
     private void AddPoint(Point p)
@@ -199,7 +244,23 @@ public partial class MainWindow : Window
         _engine.Loop = ChkLoop.IsChecked == true;
 
         IPositionProvider provider;
-        if (RbFlow.IsChecked == true)
+        if (RbVo.IsChecked == true)
+        {
+            if (hwnd == IntPtr.Zero) { SetStatus("Выбери окно игры («Скан») — зрению нужен источник кадров."); return; }
+            if (!_wgc.IsRunning) _wgc.TryStart(hwnd); // даже без лайв-превью движку нужен захват
+
+            float mult = ParseFloat(TxtPxScale.Text, 1f);
+            double cw = RouteCanvas.ActualWidth > 16 ? RouteCanvas.ActualWidth : 512;
+            double ch = RouteCanvas.ActualHeight > 16 ? RouteCanvas.ActualHeight : 512;
+            _frame.ResetBasis();
+            _frame.InvertMotion = false;
+            _frame.ScaleX = (float)(cw / 256.0) * mult;
+            _frame.ScaleY = (float)(ch / 256.0) * mult;
+
+            provider = new VisualOdometryProvider(_captureSource, new PhaseCorrelationEstimator(), _frame, new LandmarkMap());
+            SetStatus("Зрение: камеру держи строго сверху. После отсчёта бот сам калибрует W/D.");
+        }
+        else if (RbFlow.IsChecked == true)
         {
             if (hwnd == IntPtr.Zero) { SetStatus("Выбери окно игры (кнопка «Скан») — для оптического потока оно нужно."); return; }
             _flowSettings.WorldPerPixel = ParseFloat(TxtPxScale.Text, _flowSettings.WorldPerPixel);
@@ -234,18 +295,36 @@ public partial class MainWindow : Window
     {
         Dispatcher.InvokeAsync(() =>
         {
-            Place(_dot, t.Position);
-            if (t.Direction.LengthSquared() > 1e-4f)
+            if (!_draggingMarker)
             {
-                var d = Vector2.Normalize(t.Direction);
-                _dotHeading.X1 = t.Position.X; _dotHeading.Y1 = t.Position.Y;
-                _dotHeading.X2 = t.Position.X + d.X * 13; _dotHeading.Y2 = t.Position.Y + d.Y * 13;
-                _dotHeading.Visibility = Visibility.Visible;
+                Place(_dot, t.Position);
+                if (t.Direction.LengthSquared() > 1e-4f)
+                {
+                    var d = Vector2.Normalize(t.Direction);
+                    _dotHeading.X1 = t.Position.X; _dotHeading.Y1 = t.Position.Y;
+                    _dotHeading.X2 = t.Position.X + d.X * 13; _dotHeading.Y2 = t.Position.Y + d.Y * 13;
+                    _dotHeading.Visibility = Visibility.Visible;
+                }
             }
             TxtPos.Text = $"X:{t.Position.X,4:0} Y:{t.Position.Y,4:0} | {t.Keys} | conf {t.Confidence:0.00}";
             UpdateConfidence(t.Confidence);
+
+            // Лайв-телеметрия.
+            TxtTmMode.Text = string.IsNullOrEmpty(t.Mode) ? "—" : t.Mode;
+            TxtTmFps.Text = t.Fps > 0 ? $"{t.Fps,4:0.0}" : "—";
+            TxtTmResp.Text = $"{t.Response:0.00}";
+            TxtTmDrift.Text = $"{t.DriftSinceSnap,4:0.0} px";
+            TxtTmLm.Text = t.Landmarks.ToString();
+            TxtTmKeys.Text = KeysGlyph(t.Keys);
+            TxtTmPos.Text = $"{t.Position.X,4:0},{t.Position.Y,4:0}";
+            TxtTmSnap.Opacity = t.Snapped ? 1.0 : Math.Max(0, TxtTmSnap.Opacity * 0.82);
         });
     }
+
+    private static string KeysGlyph(MoveKey k) =>
+        $"{(k.HasFlag(MoveKey.Forward) ? "W" : "·")}{(k.HasFlag(MoveKey.Left) ? "A" : "·")}" +
+        $"{(k.HasFlag(MoveKey.Back) ? "S" : "·")}{(k.HasFlag(MoveKey.Right) ? "D" : "·")}" +
+        $"{(k.HasFlag(MoveKey.Jump) ? " ⎵" : "")}";
 
     private void UpdateConfidence(float conf)
     {
@@ -268,7 +347,8 @@ public partial class MainWindow : Window
         BtnStop.IsEnabled = running;
         BtnClear.IsEnabled = !running;
         BtnRefresh.IsEnabled = !running;
-        RouteCanvas.IsHitTestVisible = !running;
+        // Hit-test НЕ глушим во время прогона — нужен для перетаскивания маркера (ре-якорь).
+        // Рисование маршрута блокируется проверкой _engine.IsRunning в обработчиках.
 
         TxtRunState.Text = running ? "RUNNING" : "IDLE";
         TxtStateTag.Text = running ? "RUN" : "IDLE";

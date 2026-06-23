@@ -16,6 +16,8 @@ public sealed class DeadReckoningProvider : IPositionProvider
 
     public void Start(Vector2 startWorldPos) => _pos = startWorldPos;
 
+    public void SetPosition(Vector2 worldPos) => _pos = worldPos;
+
     public Vector2 Update(Vector2 commandedDir, float speed, double dt)
     {
         _pos += commandedDir * (float)(speed * dt);

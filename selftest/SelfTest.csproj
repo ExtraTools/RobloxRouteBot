@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>RobloxRouteBot.SelfTest</RootNamespace>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <!-- Линкуем РЕАЛЬНЫЕ исходники математического ядра (без WPF/Win2D-зависимостей). -->
+  <ItemGroup>
+    <Compile Include="..\Vision\GrayFrame.cs" />
+    <Compile Include="..\Vision\IMotionEstimator.cs" />
+    <Compile Include="..\Vision\FrameTransform.cs" />
+    <Compile Include="..\Vision\PhaseCorrelationEstimator.cs" />
+    <Compile Include="..\Vision\LandmarkMap.cs" />
+    <Compile Include="..\Core\PurePursuitController.cs" />
+  </ItemGroup>
+
+</Project>

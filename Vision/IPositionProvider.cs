@@ -20,6 +20,9 @@ public interface IPositionProvider : IDisposable
     /// <summary>Инициализация в известной стартовой точке маршрута.</summary>
     void Start(Vector2 startWorldPos);
 
+    /// <summary>Жёстко задать текущую позицию (ручной ре-якорь маркером). Для closed-loop — сброс гипотез.</summary>
+    void SetPosition(Vector2 worldPos);
+
     /// <summary>
     /// Один тик. commandedDir — нормализованное направление, которое контроллер сейчас командует
     /// (open-loop провайдер по нему и «едет»; провайдеры с реальным зрением его игнорируют).

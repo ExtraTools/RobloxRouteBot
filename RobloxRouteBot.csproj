@@ -14,6 +14,14 @@
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
+  <!-- Тест-проект математического ядра живёт в подпапке — не тянуть его в основную сборку. -->
+  <ItemGroup>
+    <Compile Remove="selftest\**" />
+    <Page Remove="selftest\**" />
+    <EmbeddedResource Remove="selftest\**" />
+    <None Remove="selftest\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Win2D: чтение GPU-кадра Windows.Graphics.Capture без ручного D3D11-readback -->
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="[1.0.0,2.0.0)" />

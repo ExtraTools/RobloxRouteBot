@@ -1,5 +1,6 @@
 using System.Numerics;
 using RobloxRouteBot.Input;
+using RobloxRouteBot.Vision;
 
 namespace RobloxRouteBot.Core;
 
@@ -32,6 +33,27 @@ public static class MovementMapper
         if (dir.X > Threshold) keys |= MoveKey.Right;
         else if (dir.X < -Threshold) keys |= MoveKey.Left;
 
+        return keys;
+    }
+
+    /// <summary>
+    /// Маппинг через откалиброванный базис: желаемое направление в канвасе раскладываем на
+    /// (вперёд, вбок) = B⁻¹·dir, где столбцы B — направления движения при W и D. Это снимает
+    /// предположение «вверх = вперёд»: при любой ориентации камеры жмём правильные клавиши.
+    /// </summary>
+    public static MoveKey Map(Vector2 dir, FrameTransform frame)
+    {
+        if (dir.LengthSquared() < 1e-6f) return MoveKey.None;
+        var (forward, strafe) = frame.WorldDirToBodyCoeffs(Vector2.Normalize(dir));
+        var body = new Vector2(forward, strafe);
+        if (body.LengthSquared() < 1e-9f) return MoveKey.None;
+        body = Vector2.Normalize(body);
+
+        MoveKey keys = MoveKey.None;
+        if (body.X > Threshold) keys |= MoveKey.Forward;
+        else if (body.X < -Threshold) keys |= MoveKey.Back;
+        if (body.Y > Threshold) keys |= MoveKey.Right;
+        else if (body.Y < -Threshold) keys |= MoveKey.Left;
         return keys;
     }
 }

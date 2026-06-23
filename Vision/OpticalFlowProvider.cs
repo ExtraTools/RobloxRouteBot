@@ -65,6 +65,8 @@ public sealed class OpticalFlowProvider : IPositionProvider
         LastShiftPixels = Vector2.Zero;
     }
 
+    public void SetPosition(Vector2 worldPos) => _pos = worldPos;
+
     public Vector2 Update(Vector2 commandedDir, float speed, double dt)
     {
         var (frame, shift, conf) = MeasureStep();
