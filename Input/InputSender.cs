@@ -77,24 +77,8 @@ public sealed class InputSender
     /// <summary>Отпустить всё. Вызывать при стопе/выходе, иначе клавиша «залипнет».</summary>
     public void ReleaseAll() => SetHeld(MoveKey.None);
 
-    /// <summary>Относительное движение мыши (для будущей модели с поворотом камеры). В v1 не используется.</summary>
-    public void MoveMouseRelative(int dx, int dy)
-    {
-        var input = new INPUT
-        {
-            type = 0, // INPUT_MOUSE
-            U = new InputUnion
-            {
-                mi = new MOUSEINPUT
-                {
-                    dx = dx,
-                    dy = dy,
-                    dwFlags = 0x0001, // MOUSEEVENTF_MOVE
-                },
-            },
-        };
-        SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
-    }
+    // ВАЖНО: бот НЕ управляет мышью/камерой — только клавиатура (WASD/Space).
+    // Функции движения мыши здесь намеренно нет: программа физически не может повернуть камеру.
 
     private static INPUT MakeKey(ushort scan, bool down) => new()
     {

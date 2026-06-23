@@ -127,11 +127,13 @@
                         <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtPxScale" Text="1.0" FontFamily="Consolas" Margin="0,8,0,0"/>
                     </Grid>
 
-                    <Grid Margin="0,16,0,0">
-                        <CheckBox x:Name="ChkLoop" Style="{StaticResource PillToggle}" Content="Цикл" HorizontalAlignment="Left"/>
-                        <Button x:Name="BtnCalib" Style="{StaticResource GhostButton}" Content="Калибровка"
-                                HorizontalAlignment="Right" Padding="12,6" Click="BtnCalib_Click"/>
-                    </Grid>
+                    <StackPanel Margin="0,16,0,0">
+                        <CheckBox x:Name="ChkLoop" Style="{StaticResource PillToggle}" Content="Цикл (повтор маршрута)"/>
+                        <CheckBox x:Name="ChkAutoCalib" Style="{StaticResource PillToggle}" Margin="0,10,0,0"
+                                  Content="Авто-калибр. W/D на старте" IsChecked="True"/>
+                        <Button x:Name="BtnCalib" Style="{StaticResource GhostButton}" Content="Настройка потока…"
+                                HorizontalAlignment="Left" Padding="12,6" Margin="0,10,0,0" Click="BtnCalib_Click"/>
+                    </StackPanel>
 
                     <TextBlock Text="CONFIDENCE" Style="{StaticResource Overline}" Margin="0,18,0,6"/>
                     <DockPanel>

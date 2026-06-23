@@ -242,6 +242,7 @@ public partial class MainWindow : Window
         IntPtr hwnd = SelectedHwnd();
         _engine.Speed = ParseFloat(TxtSpeed.Text, 120f);
         _engine.Loop = ChkLoop.IsChecked == true;
+        _engine.AutoCalibrate = ChkAutoCalib.IsChecked == true;
 
         IPositionProvider provider;
         if (RbVo.IsChecked == true)
