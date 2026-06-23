@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>RobloxRouteBot</AssemblyName>
+    <RootNamespace>RobloxRouteBot</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Win2D: чтение GPU-кадра Windows.Graphics.Capture без ручного D3D11-readback -->
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="[1.0.0,2.0.0)" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,198 @@
+<Window x:Class="RobloxRouteBot.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sh="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Roblox Route Bot" Height="760" Width="1180" MinHeight="620" MinWidth="1000"
+        WindowStartupLocation="CenterScreen" WindowStyle="None"
+        Background="{StaticResource BgBase}" Foreground="{StaticResource TextPrimary}"
+        FontFamily="Segoe UI" FontSize="13" UseLayoutRounding="True">
+
+    <sh:WindowChrome.WindowChrome>
+        <sh:WindowChrome CaptionHeight="44" ResizeBorderThickness="6" GlassFrameThickness="0"
+                         CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </sh:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <DrawingBrush x:Key="GridBrush" TileMode="Tile" Viewport="0,0,110,110"
+                      ViewportUnits="Absolute" Stretch="None">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen><Pen Brush="#101316" Thickness="1"/></GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <LineGeometry StartPoint="22,0" EndPoint="22,110"/>
+                                <LineGeometry StartPoint="44,0" EndPoint="44,110"/>
+                                <LineGeometry StartPoint="66,0" EndPoint="66,110"/>
+                                <LineGeometry StartPoint="88,0" EndPoint="88,110"/>
+                                <LineGeometry StartPoint="0,22" EndPoint="110,22"/>
+                                <LineGeometry StartPoint="0,44" EndPoint="110,44"/>
+                                <LineGeometry StartPoint="0,66" EndPoint="110,66"/>
+                                <LineGeometry StartPoint="0,88" EndPoint="110,88"/>
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen><Pen Brush="#15191D" Thickness="1"/></GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,110,110"/></GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder" Background="{StaticResource BgBase}">
+        <DockPanel>
+
+            <!-- ===== TITLE BAR ===== -->
+            <Grid DockPanel.Dock="Top" Height="44" Background="{StaticResource BgSurface}">
+                <Border BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,0,1"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Border x:Name="StatusDot" Width="8" Height="8" CornerRadius="2"
+                            Background="{StaticResource Accent}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Roblox Route Bot" FontWeight="SemiBold" FontSize="13"
+                               Foreground="{StaticResource TextPrimary}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtStateTag" Text="IDLE" Style="{StaticResource Mono}"
+                               Foreground="{StaticResource TextMuted}" FontSize="11" Margin="12,1,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" sh:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="BtnMin" Style="{StaticResource ChromeButton}" Click="BtnMin_Click">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE921;" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="BtnClose" Style="{StaticResource ChromeClose}" Click="BtnClose_Click">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ===== STATUS STRIP ===== -->
+            <Grid DockPanel.Dock="Bottom" Height="36" Background="{StaticResource BgSurface}">
+                <Border BorderBrush="{StaticResource Hairline}" BorderThickness="0,1,0,0"/>
+                <DockPanel Margin="14,0">
+                    <Border x:Name="RunPill" CornerRadius="3" Background="#15181C" BorderBrush="{StaticResource Hairline}"
+                            BorderThickness="1" Padding="8,3" VerticalAlignment="Center" DockPanel.Dock="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="RunDot" Width="7" Height="7" Fill="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtRunState" Text="IDLE" Style="{StaticResource Mono}"
+                                       Foreground="{StaticResource TextSecondary}" Margin="7,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="TxtPos" Style="{StaticResource Mono}" Foreground="{StaticResource TextMuted}"
+                               DockPanel.Dock="Right" VerticalAlignment="Center" Text="—"/>
+                    <TextBlock x:Name="TxtStatus" Text="Нарисуй маршрут на поле — зажми ЛКМ и веди."
+                               VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextSecondary}"/>
+                </DockPanel>
+            </Grid>
+
+            <!-- ===== LEFT RAIL ===== -->
+            <Border DockPanel.Dock="Left" Width="234" Background="{StaticResource BgSurface}"
+                    BorderBrush="{StaticResource Hairline}" BorderThickness="0,0,1,0">
+                <StackPanel Margin="14">
+
+                    <TextBlock Text="TARGET WINDOW" Style="{StaticResource Overline}"/>
+                    <DockPanel>
+                        <Button x:Name="BtnRefresh" DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
+                                Content="Скан" Padding="10,0" Margin="6,0,0,0" Click="BtnRefresh_Click"/>
+                        <ComboBox x:Name="CmbWindow"/>
+                    </DockPanel>
+
+                    <TextBlock Text="EYES / FEEDBACK" Style="{StaticResource Overline}" Margin="0,16,0,6"/>
+                    <Border Background="{StaticResource InputBg}" BorderBrush="{StaticResource BorderInter}"
+                            BorderThickness="1" CornerRadius="8" Padding="2">
+                        <UniformGrid Rows="1" Columns="2">
+                            <RadioButton x:Name="RbOpen" Style="{StaticResource Segment}" GroupName="eyes"
+                                         IsChecked="True" Content="Open-loop"/>
+                            <RadioButton x:Name="RbFlow" Style="{StaticResource Segment}" GroupName="eyes"
+                                         Content="Опт. поток"/>
+                        </UniformGrid>
+                    </Border>
+
+                    <TextBlock Text="PARAMETERS" Style="{StaticResource Overline}" Margin="0,16,0,6"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="72"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Скорость" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextSecondary}"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtSpeed" Text="120" FontFamily="Consolas"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="px → world" VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextSecondary}" Margin="0,8,0,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtPxScale" Text="1.0" FontFamily="Consolas" Margin="0,8,0,0"/>
+                    </Grid>
+
+                    <Grid Margin="0,16,0,0">
+                        <CheckBox x:Name="ChkLoop" Style="{StaticResource PillToggle}" Content="Цикл" HorizontalAlignment="Left"/>
+                        <Button x:Name="BtnCalib" Style="{StaticResource GhostButton}" Content="Калибровка"
+                                HorizontalAlignment="Right" Padding="12,6" Click="BtnCalib_Click"/>
+                    </Grid>
+
+                    <TextBlock Text="CONFIDENCE" Style="{StaticResource Overline}" Margin="0,18,0,6"/>
+                    <DockPanel>
+                        <TextBlock x:Name="TxtConfVal" DockPanel.Dock="Right" Style="{StaticResource Mono}"
+                                   Foreground="{StaticResource TextMuted}" Text="—"/>
+                        <TextBlock Text="signal" Foreground="{StaticResource TextMuted}" FontSize="12"/>
+                    </DockPanel>
+                    <Border x:Name="ConfTrack" Height="6" CornerRadius="3" Margin="0,6,0,0"
+                            Background="{StaticResource BgCard}" BorderBrush="{StaticResource Hairline}" BorderThickness="1">
+                        <Rectangle x:Name="ConfFill" HorizontalAlignment="Left" Width="0" RadiusX="2" RadiusY="2"
+                                   Fill="{StaticResource Success}"/>
+                    </Border>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ===== CANVAS ZONE ===== -->
+            <Grid Margin="0,12,12,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="2,0,2,8">
+                    <TextBlock x:Name="TxtRouteStat" DockPanel.Dock="Right" Style="{StaticResource Mono}"
+                               Foreground="{StaticResource TextMuted}" Text="0 pts"/>
+                    <TextBlock Text="ROUTE CANVAS" Style="{StaticResource Overline}" DockPanel.Dock="Left"
+                               Margin="0" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="ChkLive" Style="{StaticResource PillToggle}" Content="Лайв-превью игры"
+                              DockPanel.Dock="Left" Margin="16,0,0,0" VerticalAlignment="Center"
+                              Checked="ChkLive_Toggle" Unchecked="ChkLive_Toggle"/>
+                </DockPanel>
+
+                <Grid Grid.Row="1">
+                    <Border x:Name="CanvasWell" Background="{StaticResource CanvasBg}" CornerRadius="10"
+                            BorderBrush="{StaticResource Hairline}" BorderThickness="1">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#000000" BlurRadius="18" ShadowDepth="0" Opacity="0.5"/>
+                        </Border.Effect>
+                    </Border>
+                    <Grid Margin="2">
+                        <Image x:Name="LiveImage" Stretch="Uniform" Visibility="Collapsed"
+                               RenderOptions.BitmapScalingMode="LowQuality"/>
+                        <Canvas x:Name="RouteCanvas" Background="{StaticResource GridBrush}" ClipToBounds="True"
+                                MouseLeftButtonDown="Canvas_MouseLeftButtonDown"
+                                MouseMove="Canvas_MouseMove"
+                                MouseLeftButtonUp="Canvas_MouseLeftButtonUp"
+                                SizeChanged="RouteCanvas_SizeChanged"/>
+                        <Canvas x:Name="RulerCanvas" IsHitTestVisible="False" ClipToBounds="True"/>
+                    </Grid>
+                </Grid>
+
+                <DockPanel Grid.Row="2" Margin="2,12,2,0">
+                    <Button x:Name="BtnStop" DockPanel.Dock="Right" Style="{StaticResource DangerButton}"
+                            Content="■ Стоп" IsEnabled="False" Click="BtnStop_Click"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="BtnPlay" Style="{StaticResource PrimaryButton}" Content="▶ Запустить маршрут" Click="BtnPlay_Click"/>
+                        <Button x:Name="BtnClear" Style="{StaticResource GhostButton}" Content="Очистить" Margin="8,0,0,0" Click="BtnClear_Click"/>
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
+
+        </DockPanel>
+    </Border>
+</Window>
